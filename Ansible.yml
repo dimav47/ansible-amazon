@@ -46,7 +46,7 @@
     count: 1
     vpc_subnet_id: subnet-29e63245
     assign_public_ip: yes
-   tasks:
+  tasks:
   - name: Ensure tomcat package is present
     apt:
       name: tomcat9
