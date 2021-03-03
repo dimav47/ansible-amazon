@@ -1,68 +1,76 @@
-- ec2:
-    key_name: mykey1
-    instance_type: t2.micro
-    image: ami-08962a4068733a2b6
-    wait: yes
-    group: build
-    count: 1
-    vpc_subnet_id: subnet-29e63245
-    assign_public_ip: yes
+---
+- name: Create EC2 and realise webapp
+  hosts: localhost
+  gather_facts: False
+
   tasks:
-  - name: Ensure tomcat package is pesent
-    apt:
-      name: tomcat9
-      state: present
+    - name: Create build instances
+      ec2:
+        key_name: mykey1
+        instance_type: t2.micro
+        image: ami-08962a4068733a2b6
+        wait: yes
+        group: build
+        count: 1
+        vpc_subnet_id: subnet-29e63245
+        assign_public_ip: yes
   
-  - name: Ensure default JDK is present
-    apt:
-      name: default-jdk
-      state: present
+    - name: Ensure tomcat package is pesent
+      apt:
+        name: tomcat9
+        state: present
   
-  - name: Ensure maven package is present
-    apt:
-      name: maven
-      state: present
+    - name: Ensure default JDK is present
+      apt:
+        name: default-jdk
+        state: present
   
-  - name: Ensure git package is present
-    apt:
-      name: git
-      state: present
+    - name: Ensure maven package is present
+      apt:
+        name: maven
+        state: present
   
-  - name: Ensure boxfuse-sample-java-war-hello is present
-    git:
-      repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
-      dest: /home/boxfuse-sample-java-war-hello
-      clone: yes
+    - name: Ensure git package is present
+      apt:
+        name: git
+        state: present
+  
+    - name: Ensure boxfuse-sample-java-war-hello is present
+      git:
+        repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+        dest: /home/boxfuse-sample-java-war-hello
+        clone: yes
 
-  - name: package boxfuse
-    command: mvn -f /home/boxfuse-sample-java-war-hello/pom.xml
+    - name: package boxfuse
+      command: mvn -f /home/boxfuse-sample-java-war-hello/pom.xml
+      
+    - name: Create prod instances
+      ec2:
+        key_name: mykey2
+        instance_type: t2.micro
+        image: ami-08962a4068733a2b6
+        wait: yes
+        group: prod
+        count: 1
+        vpc_subnet_id: subnet-29e63245
+        assign_public_ip: yes
 
-- ec2:
-    key_name: mykey2
-    instance_type: t2.micro
-    image: ami-08962a4068733a2b6
-    wait: yes
-    group: prod
-    count: 1
-    vpc_subnet_id: subnet-29e63245
-    assign_public_ip: yes
-  tasks:
-  - name: Ensure tomcat package is present
-    apt:
-      name: tomcat9
-      state: present
+    - name: Ensure tomcat package is present
+      apt:
+        name: tomcat9
+        state: present
 
-  - name: Ensure default JDK is present
-    apt:
-      name: default-jdk
-      state: present
+    - name: Ensure default JDK is present
+      apt:
+        name: default-jdk
+        state: present
 
-  - name: Ensure tomcat started
-    apt:
-      name: tomcat9
-      state: started
+    - name: Ensure tomcat started
+      apt:
+        name: tomcat9
+        state: started
   
-  - name: Ensure webapp is move it
-    synchronize:
-      src: /home/boxfuse/target/hello-1.0.war
-      dest: /var/lib/tomcat9/webapps
+    - name: Ensure webapp is move it
+      synchronize:
+        src: /home/boxfuse/target/hello-1.0.war
+        dest: /var/lib/tomcat9/webapps
