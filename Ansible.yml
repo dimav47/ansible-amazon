@@ -1,50 +1,68 @@
-# Minimal example using environment vars or instance role credentials
-# Fetch all hosts in us-east-1, the hostname is the public DNS if it exists, otherwise the private IP address
-plugin: aws_ec2
-regions:
-  - us-east-2
-filters:
-  # All instances with their `Environment` tag set to `build`
-  tag:Environment: build
-  # All build and prod hosts
-  tag:Environment:
-    - build
-    - prod
-  instance.group-id: vpc-6d2dae06
-# Ignores 403 errors rather than failing
-strict_permissions: False
-# Note: I(hostnames) sets the inventory_hostname. To modify ansible_host without modifying
-# inventory_hostname use compose (see example below).
-hostnames:
-  - tag:Name=Build,Name=Prod  # Return specific hosts only
-  - tag:CustomDNSName
-  - dns-name
-  - private-ip-address
-
-# Example using constructed features to create groups and set ansible_host
-plugin: aws_ec2
-regions:
-  - us-east-2
-# keyed_groups may be used to create custom groups
-strict: False
-keyed_groups:
-  # Add e.g. x86_64 hosts to an arch_x86_64 group
-  - prefix: arch
-    key: 'ami-08962a4068733a2b6'
+- ec2:
+    key_name: mykey1
+    instance_type: t2.micro
+    image: ami-08962a4068733a2b6
+    wait: yes
+    group: build
+    count: 1
+    vpc_subnet_id: subnet-29e63245
+    assign_public_ip: yes
+  tasks:
+  - name: Ensure tomcat package is pesent
+    apt:
+      name: tomcat9
+      state: present
   
-  # Create security_groups_sg_abcd1234 group for each SG
-  - key: 'security_groups|json_query("[sg-0770891164dbf219c].group_id")'
-    prefix: 'security_groups'
- 
-  # Create a group per region e.g. aws_region_us_east_2
-  - key: placement.region
-    prefix: us-east-2
-  # Create a group (or groups) based on the value of a custom tag "Role" and add them to a metagroup called "project"
-  - key: tags['Role']
-    prefix: foo
-    parent_group: "webapp"
-# Set individual variables with compose
-compose:
-  # Use the private IP address to connect to the host
-  # (note: this does not modify inventory_hostname, which is set via I(hostnames))
-  ansible_host: private_ip_address
+  - name: Ensure default JDK is present
+    apt:
+      name: default-jdk
+      state: present
+  
+  - name: Ensure maven package is present
+    apt:
+      name: maven
+      state: present
+  
+  - name: Ensure git package is present
+    apt:
+      name: git
+      state: present
+  
+  - name: Ensure boxfuse-sample-java-war-hello is present
+    git:
+      repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+      dest: /home/boxfuse-sample-java-war-hello
+      clone: yes
+
+  - name: package boxfuse
+    command: mvn -f /home/boxfuse-sample-java-war-hello/pom.xml
+
+- ec2:
+    key_name: mykey2
+    instance_type: t2.micro
+    image: ami-08962a4068733a2b6
+    wait: yes
+    group: prod
+    count: 1
+    vpc_subnet_id: subnet-29e63245
+    assign_public_ip: yes
+   tasks:
+  - name: Ensure tomcat package is present
+    apt:
+      name: tomcat9
+      state: present
+
+  - name: Ensure default JDK is present
+    apt:
+      name: default-jdk
+      state: present
+
+  - name: Ensure tomcat started
+    apt:
+      name: tomcat9
+      state: started
+  
+  - name: Ensure webapp is move it
+    synchronize:
+      src: /home/boxfuse/target/hello-1.0.war
+      dest: /var/lib/tomcat9/webapps
